@@ -1,6 +1,5 @@
+import collections
 import json
-import queue
-import threading
 import time
 
 import Msg
@@ -8,67 +7,45 @@ import Msg
 
 class User:
     userName = None  #
-    socket_fd = None  # 该用户 链接
-    callback_fd = None  # 回调 socket
     token = ""
-    msgs = queue.Queue()
+    msgs = None
 
-    _send_flag = False
-    _lock = threading.Lock()
+    TIMEOUT = 2
+    lastLogin = 0    # 计时器, 收到心跳包 置 5 每隔 1s -1,为 0 时,广播用户已离线
 
-    TIMEOUT = 10
-    lastLogin = 0
-    count = 5           # 计时器, 收到心跳包 置 5 每隔 1s -1,为 0 时,广播用户已离线
-    # msg = Queue(maxsize=15)
-
-    def __init__(self, name, token=''):
+    def __init__(self, name, token):
         self.userName = name
+        self.token = token
         self.lastLogin = time.time()
-        # self.token = token
+        self.msgs = collections.deque()
 
+    # 返回是否在线
+    # 超时即掉线
     def active(self):
-        return self.lastLogin - time.time() < self.TIMEOUT
+        return (time.time() - self.lastLogin) < self.TIMEOUT
 
+    # 向该用户发送消息
     def addMsg(self, name, msg):
-        if self.msgs.full():
-            self.msgs.get()
-        self.msgs.put(Msg.Msg(user_name=name, text=msg))
+        self.msgs.append(Msg.Msg(user_name=name, text=msg).toDic())
 
+    # 获取该用户的所有消息
     def getMsgs(self):
-        msgs = []
-        while self.msgs.empty() is False:
-            msgs.append(self.msgs.get().toDic())
-        return msgs
+        msg = []
+        for i in range(len(self.msgs)):
+            msg.append(self.msgs.popleft())
+        return msg
 
+    # 获取该用户的 TOKEN
+    def getToken(self):
+        return self.token
+
+    # 获取 NAME
     def getName(self):
         return self.userName
 
+    # 刷新 HEART
     def heart(self):
         self.lastLogin = time.time()
-
-    def sendMsg(self, msg):
-        if getattr(self.socket_fd, '_closed'):
-            print("error: 连接关闭")
-            return
-        while self._send_flag:
-            pass
-        self._lock.acquire()
-        self._send_flag = True
-        try:
-            data = json.dumps(msg)
-            print("send msg")
-            data += '\r\n'
-            print(data)
-        except:
-            print("json dumps error")
-            return
-        try:
-            self.socket_fd.send(data.encode("utf8"))
-        except:
-            print("断开链接")
-        finally:
-            self._send_flag = False
-            self._lock.release()
 
     def toString(self):
         return json.dumps({
