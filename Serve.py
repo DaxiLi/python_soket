@@ -269,6 +269,7 @@ class Serve:
             return json.dumps(self.bad_request)
 
     def start(self):
+        print("staer serve........")
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # AF_INET
         # ipv4
@@ -286,7 +287,6 @@ class Serve:
         outputs = []
         # 一个循环，主要是循环监听请求，当有请求时，保存请求数据，攒够一帧开始处理
         while True:
-            # sleep(1)
             readable, writeable, exceptional = select.select(inputs, outputs, inputs)
             # 接受数据
             for r in readable:
